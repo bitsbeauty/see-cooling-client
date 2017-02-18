@@ -1,4 +1,4 @@
-
+/*
 void requestTemp() {
 
   for (int i = 0; i < ANZ_DS1820_SENSORS; i++) {
@@ -59,7 +59,7 @@ void readTemp() {
         sprintf(buf, "%s:%c%d.%d\337C   ","Air ",SignBit[sensor] ? '-' : '+', Whole, Fract < 10 ? 0 : Fract);
         break;
       case 1:
-        temperatureLiquid = Tc_100;
+        temperatureBeer = Tc_100;
         sprintf(buf, "%s:%c%d.%d\337C(%d.%d)","Beer",SignBit[sensor] ? '-' : '+', Whole, Fract < 10 ? 0 : Fract, sollTemp/100, sollTemp%100 < 10 ? 0 : sollTemp%100);
         break;
     }
@@ -72,3 +72,4 @@ void readTemp() {
 
 }
 
+*/
