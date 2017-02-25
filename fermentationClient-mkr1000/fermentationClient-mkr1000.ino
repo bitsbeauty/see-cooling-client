@@ -1,3 +1,4 @@
+
 #include <MQTTClient.h>
 #include <ArduinoJson.h>
 #include <WiFi101.h>
@@ -10,9 +11,9 @@ char mqttCloudServer[]       = "192.168.0.16";  //192.168.0.16  - seebier.local
 int  mqttCloudPort           = 1883;
 char mqttCloudClientName[]   = "kuehl1";
 //char mqttCloudUsername[]   = "[device-id]";
-//char mqttCloudPassword[]   = "[device-token]";
-char mqttCloudDataOut[]      = "/freezer/f0/isValues";
-char mqttCloudActionsIn[]    = "/freezer/f0/setTemp";
+//char mqttCloudPassword[]   = "[device-token]"; 
+char mqttCloudDataOut[]      = "/freezer/f1/isValues"; //Senden
+char mqttCloudActionsIn[]    = "/freezer/f1/setValues"; //Empfangen
 
 //WiFiSSLClient ipCloudStack;
 WiFiClient netClient;
@@ -55,13 +56,28 @@ void setup() {
   Serial.println("MQTT connected!");
 }
 
-void messageReceived(String topic, String payload, char * bytes, unsigned int length) {
-  Serial.print("topic="); Serial.println(topic);
-  Serial.print("payload="); Serial.println(payload);
-  Serial.print("bytes="); Serial.println(bytes);
-  Serial.print("length="); Serial.println(length);
 
-  parseBuffer(payload);
+
+
+
+void loop() {
+  //float temperature = getTemp() * 9 / 5 + 32;
+
+  
+  mqttCloudClient.loop();
+  
+
+  //getNextSample(&temperature, &humidity);
+
+  //Serial.print("Publishing... "); Serial.print(n); Serial.println();
+
+  if (millis()-lastMqttSendTime > mqttSendTime){
+    sendMQTTMessage();
+    lastMqttSendTime = millis();
+    tempbeer += 0.1;
+    tempair += 0.1;
+  }
+
 }
 
 void parseBuffer(String payload) {
@@ -72,10 +88,6 @@ void parseBuffer(String payload) {
   const int actionLEDRed = root["actions"][0]["parameters"]["led_red"];
   const int actionLEDYellow = root["actions"][0]["parameters"]["led_yellow"];
 
-  Serial.print("name="); Serial.println(nameparam);
-  Serial.print("led_red="); Serial.println(actionLEDRed);
-  Serial.print("led_yellow="); Serial.println(actionLEDYellow);
-  Serial.println();
 
   /*
   if (actionLEDRed == 1) {
@@ -83,7 +95,6 @@ void parseBuffer(String payload) {
       digitalWrite(LED_RED_PIN, HIGH);
       savedRedValue = actionLEDRed;
     } 
-
     savedRedTime = millis();      
         
   } else {
@@ -94,14 +105,11 @@ void parseBuffer(String payload) {
       }
     }
   }
-
-
   if (actionLEDYellow == 1) {
     if (savedYellowValue != actionLEDYellow) {
       digitalWrite(LED_YELLOW_PIN, HIGH);
       savedYellowValue = actionLEDYellow;
     } 
-
     savedYellowTime = millis();      
         
   } else {
@@ -112,7 +120,6 @@ void parseBuffer(String payload) {
       }
     }qm
   }
-
   */
 }
 
@@ -131,22 +138,11 @@ void loadBuffer() {
   dataPair.printTo(buf, sizeof(buf));
 }
 
-void loop() {
-  //float temperature = getTemp() * 9 / 5 + 32;
+void messageReceived(String topic, String payload, char * bytes, unsigned int length) {
+  Serial.print("topic="); Serial.println(topic);
+  Serial.print("payload="); Serial.println(payload);
+  Serial.print("bytes="); Serial.println(bytes);
+  Serial.print("length="); Serial.println(length);
 
-  
-  mqttCloudClient.loop();
-  
-
-  //getNextSample(&temperature, &humidity);
-
-  //Serial.print("Publishing... "); Serial.print(n); Serial.println();
-  Serial.print("|");
-  if (millis()-lastMqttSendTime > mqttSendTime){
-    sendMQTTMessage();
-    lastMqttSendTime = millis();
-    tempbeer += 0.1;
-    tempair += 0.1;
-  }
-
+  parseBuffer(payload);
 }
