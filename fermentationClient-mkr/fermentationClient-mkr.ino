@@ -9,7 +9,7 @@
 const char* _SSID     = "SEE-AP";
 const char* _PASSWORD = "homebrew";
 
-char mqttBrokerIP[]       = "192.168.0.10";  //192.168.0.16  - seebier.local
+char mqttBrokerIP[]       = "192.168.1.1";  //192.168.0.10  - seebier.local
 int  mqttPort           = 1883;
 char mqttClientName[]   = "freezer0";
 char mqtt_topic_DataOut[]      = "/freezer/f1/isValues";     //receive on: f1 und f2
@@ -34,16 +34,21 @@ int displayOnTime = 12000;
 // ====== Freezer Relay ========================
 #define RELAY_PIN 19
 
+// ====== Screen Variables ========================
+char targetDurationStr[15];   //"targetDurationStr" : "00D, 00:50:52"
+float targetTemp = 0;
 
-// ====== Debug Values 
+// ====== Debug Values
 unsigned long lastUpdateMillis = 0;
 boolean toggle = false;  //steady on light
 unsigned long lastRelayTime = 0;  //last time when relay Test topic received
-
+#define LIFE_PIN 6
 
 // ====== SETUP =======================================================
 void setup() {
+  //##### debug ###
   Serial.begin(9600);
+  pinMode(LIFE_PIN, OUTPUT);
 
   //#### lcd ####
   pinMode(LCD_POWER_PIN, OUTPUT);
@@ -96,36 +101,27 @@ void setup() {
 // ====== LOOP =======================================================
 void loop() {
 
+  //mqtt
   mqttc.loop();
-  //show Display
 
-  int timer1 = millis() - lastUpdateMillis;
-  if (timer1 > 1000) {
-    lcd.setCursor(0, 2);
-    lcd.print("                    ");
-    lcd.setCursor(0, 3);
-    lcd.print("                    ");
-
-    if (toggle == true) {
-      //digitalWrite(RELAY_PIN, HIGH);
-      toggle = false;
-    } else {
-      //digitalWrite(RELAY_PIN, LOW);
-      toggle = true;
-    }
-    lastUpdateMillis = millis();
+  if(!mqttc.connected()) {
+    connectMqttBroker();
   }
 
+  //life toogle (blinking LED)
+  lifeToggle();
+
   //relay Test
-  if (millis() - lastRelayTime < 1000){
+  if (millis() - lastRelayTime < 1000) {
     digitalWrite(RELAY_PIN, HIGH);
   } else {
     digitalWrite(RELAY_PIN, LOW);
   }
 
 
- // lcd.setCursor(0, 3);
-  //lcd.print("       ");
+  //lcd.setCursor(0, 3);
+  //lcd.print("*");
+  //lcd.print(targetDurationStr);
 
   //digitalWrite(LCD_POWER_PIN, HIGH);
   //digitalWrite(RELAY_PIN, HIGH);
@@ -153,3 +149,24 @@ void loop() {
   */
 
 }
+
+
+void lifeToggle() {
+  int timer1 = millis() - lastUpdateMillis;
+  if (timer1 > 1000) {
+    lcd.setCursor(0, 2);
+    lcd.print("                    ");
+    //lcd.setCursor(0, 3);
+    //lcd.print("                    ");
+
+    if (toggle == true) {
+      digitalWrite(LIFE_PIN, HIGH);
+      toggle = false;
+    } else {
+      digitalWrite(LIFE_PIN, LOW);
+      toggle = true;
+    }
+    lastUpdateMillis = millis();
+  }
+}
+
