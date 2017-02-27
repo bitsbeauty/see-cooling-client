@@ -14,6 +14,7 @@ void connectWifi() {
     }
     delay(300);
   }
+  ipAdress = WiFi.localIP();
 }
 
 
@@ -39,8 +40,9 @@ void connectMqttBroker() {
 
 
 void messageReceived(String topic, String payload, char * bytes, unsigned int length) {
-  lcd.setCursor(0, 0);
-  lcd.print(topic);
+  lastMqttMessageReceived = millis();
+  //lcd.setCursor(0, 0);
+  //lcd.print(topic);
 
   if (topic == MQTT_TOPIC_SUBSCRIBTION) {
     parseBuffer(payload);
@@ -50,7 +52,7 @@ void messageReceived(String topic, String payload, char * bytes, unsigned int le
   if (topic == MQTT_TOPIC_RELAYTEST) {
     lastRelayTime = millis();
   }
-  
+
 }
 
 void parseBuffer(String payload) {
@@ -74,17 +76,19 @@ void parseBuffer(String payload) {
   //targetDurationStr = root["targetDurationStr"].asString();
   //_targetDurationStr.toCharArray(targetDurationStr, 13);
   //targetTemp = _targetTemp;
-  lcd.setCursor(0, 2);
-  lcd.print("target: ");
-  lcd.print(targetTemp);
-  lcd.print("\337C");
+  /*
+    lcd.setCursor(0, 2);
+    lcd.print("target: ");
+    lcd.print(targetTemp);
+    lcd.print("");
+  */
 
   const char* _targetDurationStr = root["targetDurationStr"];
   //targetDurationStr = root["targetDurationStr"].asString();
   //_targetDurationStr.toCharArray(targetDurationStr, 13);
   lcd.setCursor(0, 3);
-  lcd.print("tdur:");
-  lcd.print(_targetDurationStr);
+    lcd.print("tdur:");
+    lcd.print(_targetDurationStr);
 
   /*
     const char* nameparam = root["actions"][0]["name"];

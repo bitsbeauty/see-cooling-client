@@ -5,6 +5,7 @@
 #include <ArduinoJson.h>
 #include <WiFi101.h>
 
+
 // ====== wifi & mqtt==============================
 const char* _SSID     = "SEE-AP";
 const char* _PASSWORD = "homebrew";
@@ -18,6 +19,9 @@ char MQTT_TOPIC_RELAYTEST[] = "/relayTest/f1";
 
 WiFiClient netClient;   //wifi cleint
 MQTTClient mqttc;
+IPAddress ipAdress;
+
+boolean mqttReceiveTimeout = false;
 
 
 // ====== lcd ==============================
@@ -27,9 +31,15 @@ LiquidCrystal lcd(7, 8, 9, 1, 11, 12); //mkr
 #define LCD_HEIGHT 4
 unsigned long displayTimer = 0;
 int displayOnTime = 12000;
+int displayMode = 0;
 
 // ====== encoder ========================
 #define ENCODER_SWITCH_PIN 4 //push button switch
+unsigned long lastEncoderButtonUpdate = 0;
+int lastButtonState;
+boolean buttonPressed = false;
+boolean buttonClicked = false;
+boolean buttonClickedFirst = true;
 
 // ====== Freezer Relay ========================
 #define RELAY_PIN 19
@@ -38,11 +48,25 @@ int displayOnTime = 12000;
 char targetDurationStr[15];   //"targetDurationStr" : "00D, 00:50:52"
 float targetTemp = 0;
 
-// ====== Debug Values
-unsigned long lastUpdateMillis = 0;
+// ====== Temperature / DS18B20 Sensor ============
+//OneWire  ds(19);  // on pin 5sendt
+float beerTemp = 0.0;
+float airTemp = 0.0;
+
+// ====== Timer / Debug
+#define LIFE_PIN 6
+char celciusSign[] = "\337";  // \337C
+unsigned long lastLifeToggleUpdate = 0;
 boolean toggle = false;  //steady on light
 unsigned long lastRelayTime = 0;  //last time when relay Test topic received
-#define LIFE_PIN 6
+unsigned long  lastRefreshUpdate = 0;
+boolean refresh = true;
+boolean first = true;
+unsigned long lastMqttMessageReceived = 0;
+unsigned long lastblinkTimerUpdate = 0;
+boolean blinkeMsg = false;
+unsigned long lcdLightLastUpdate = 0;
+boolean lcdLightOn = true;
 
 // ====== SETUP =======================================================
 void setup() {
@@ -57,6 +81,7 @@ void setup() {
 
   //#### encoder ####
   pinMode(ENCODER_SWITCH_PIN, INPUT);
+  //attachInterrupt(digitalPinToInterrupt(ENCODER_SWITCH_PIN), encoderButtonPressed, RISING);
 
   //#### relay ####
   pinMode(RELAY_PIN, OUTPUT);
@@ -72,8 +97,8 @@ void setup() {
   lcd.setCursor(0, 0);
   lcd.print("WiFi connected");
   lcd.setCursor(0, 1);
-  lcd.print("IP: ");
-  lcd.println(WiFi.localIP());
+  lcd.print("IP  : ");
+  lcd.println(ipAdress);
 
   //#### mqtt ####
   lcd.setCursor(0, 2);
@@ -104,8 +129,24 @@ void loop() {
   //mqtt
   mqttc.loop();
 
-  if(!mqttc.connected()) {
+  if (!mqttc.connected()) {
     connectMqttBroker();
+  }
+
+  if (millis() - lastMqttMessageReceived > 1500) {
+    // NO MQTT MESSAGE RECEIVED !!!
+    mqttReceiveTimeout = true;
+
+    if (millis() - lastblinkTimerUpdate > 500 && blinkeMsg == false) {
+      //show Text
+      blinkeMsg = true;
+    } else if (millis() - lastblinkTimerUpdate > 1200 && blinkeMsg == true) {
+      //dont show text
+      blinkeMsg = false;
+      lastblinkTimerUpdate = millis();
+    }
+  } else {
+    mqttReceiveTimeout = false;
   }
 
   //life toogle (blinking LED)
@@ -118,47 +159,116 @@ void loop() {
     digitalWrite(RELAY_PIN, LOW);
   }
 
+  checkEncoderButtonPress();  //check if button pressed
 
-  //lcd.setCursor(0, 3);
-  //lcd.print("*");
-  //lcd.print(targetDurationStr);
-
-  //digitalWrite(LCD_POWER_PIN, HIGH);
-  //digitalWrite(RELAY_PIN, HIGH);
-  //lcd.setCursor(0, 3);
-  //lcd.print(timer1);
-  //delay(300);
-
-  /* lcd.setCursor(0, 3);
-    lcd.print("OFF");
-    delay(500);
-  */
-  //digitalWrite(RELAY_PIN, LOW);
-  // digitalWrite(LCD_POWER_PIN, LOW);
-  //Serial.println("OFF");
-  //delay(1500);
-
-
-  /*if (millis() - displayTimer < displayOnTime || millis() - lastEncoderChange < displayOnTime) {
-    //lcd.display();
-    digitalWrite(LCD_POWER_PIN, HIGH);
+  // Diplay Values
+  checkDisplayRefresh();
+  //Button pressed
+  if (buttonClicked == true) {
+    lcdLightLastUpdate = millis();
+    if (lcdLightOn == false) {
+      lcdLightOn = true;
     } else {
-    //lcd.noDisplay();u
-    digitalWrite(LCD_POWER_PIN, LOW);
+      lcd.clear();
+      displayMode = (displayMode + 1) % 3;
+      refresh = true;
     }
-  */
+  }
+
+  if (lcdLightOn && millis() - lcdLightLastUpdate < 100) {
+    digitalWrite(LCD_POWER_PIN, HIGH);
+  } else if (lcdLightOn && millis() - lcdLightLastUpdate >= 10000) {
+    lcdLightOn = false;
+  } else if (lcdLightOn == false) {
+    digitalWrite(LCD_POWER_PIN, LOW);
+  }
+
+  char buf[20];
+  sprintf(buf, "dm:%i - ref:%i", displayMode, refresh);
+  Serial.println(buf);
+
+
+  switch (displayMode) {
+    case 0:
+      //Main Screen
+      if (refresh) {
+        lcd.setCursor(0, 0);
+        lcd.print("1)Main              ");
+        lcd.setCursor(0, 1);
+        lcd.print("beer:               ");
+        lcd.setCursor(0, 2);
+        lcd.print("air :               ");
+        lcd.setCursor(0, 3);
+        lcd.print("                    ");
+      }
+
+      char buf[20];
+      // Beer Temp
+      sprintf(buf, "%-.2f%s(%-.2f%s)   ", beerTemp, celciusSign, targetTemp, celciusSign);
+      lcd.setCursor(5, 1);
+      lcd.print(buf);
+
+      // Air Temp
+      sprintf(buf, "%-.2f%s   ", airTemp, celciusSign);
+      lcd.setCursor(5, 2);
+      lcd.print(buf);
+
+      //Left Time
+      lcd.setCursor(0, 3);
+      if (mqttReceiveTimeout) {
+        if (blinkeMsg) {
+          lcd.print(" !!NO MQTT Message!!");
+        } else {
+          lcd.print("                    ");
+        }
+      } else {
+        //lcd.print("tdur:");
+        //lcd.print(_targetDurationStr);
+      }
+      return;
+    case 1:
+      //Target Screen
+      if (refresh) {
+        lcd.setCursor(0, 0);
+        lcd.print("2)Target          ");
+
+      }
+
+      return;
+    case 2:
+      //WIFI Screen
+      if (refresh) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("3)Wifi          ");
+        lcd.setCursor(0, 1);
+        lcd.print("SSID: ");
+        lcd.print(_SSID);
+        lcd.setCursor(0, 2);
+        lcd.print("IP  : ");
+        lcd.println(ipAdress);
+      }
+      lcd.setCursor(0, 3);
+      if (WiFi.status() != WL_CONNECTED) {
+        if (blinkeMsg) {
+          lcd.print(" !! No Connection !!");
+        } else {
+          lcd.print("                    ");
+        }
+      } else {
+        lcd.print("     WiFi connected");
+      }
+
+      return;
+  }
+
 
 }
 
 
 void lifeToggle() {
-  int timer1 = millis() - lastUpdateMillis;
+  int timer1 = millis() - lastLifeToggleUpdate;
   if (timer1 > 1000) {
-    lcd.setCursor(0, 2);
-    lcd.print("                    ");
-    //lcd.setCursor(0, 3);
-    //lcd.print("                    ");
-
     if (toggle == true) {
       digitalWrite(LIFE_PIN, HIGH);
       toggle = false;
@@ -166,7 +276,17 @@ void lifeToggle() {
       digitalWrite(LIFE_PIN, LOW);
       toggle = true;
     }
-    lastUpdateMillis = millis();
+    lastLifeToggleUpdate = millis();
+  }
+}
+
+void checkDisplayRefresh() {
+  if (millis() - lastRefreshUpdate > 3000 || first == true) {
+    first = false;
+    refresh = true;
+    lastRefreshUpdate = millis();
+  } else {
+    refresh = false;
   }
 }
 
