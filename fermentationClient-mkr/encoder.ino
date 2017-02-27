@@ -30,11 +30,11 @@ void checkEncoderButtonPress() {
     buttonClickedFirst = true;
   }
 
-  /*
+  
   char buf[20];
   sprintf(buf, "%i - %i -p:%i -c:%i", buttonState, _buttonPressedTime, buttonPressed, buttonClicked);
   Serial.println(buf);
-  */
+  
 
   lastButtonState = buttonState;
 }

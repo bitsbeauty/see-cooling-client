@@ -86,10 +86,21 @@ void parseBuffer(String payload) {
   const char* _targetDurationStr = root["targetDurationStr"];
   //targetDurationStr = root["targetDurationStr"].asString();
   //_targetDurationStr.toCharArray(targetDurationStr, 13);
-  lcd.setCursor(0, 3);
+  if (displayMode == 1) {
+    lcd.setCursor(0, 3);
     lcd.print("tdur:");
     lcd.print(_targetDurationStr);
+  }
 
+  /*const char* _leftRuntimeStr = root["leftRuntimeStr"];
+  if (displayMode == 0) {
+    lcd.setCursor(0, 3);
+    lcd.print(" -T :");
+    lcd.print(_leftRuntimeStr);
+  }
+  */
+
+  
   /*
     const char* nameparam = root["actions"][0]["name"];
     const int actionLEDRed = root["actions"][0]["parameters"]["led_red"];
@@ -101,3 +112,26 @@ void parseBuffer(String payload) {
     Serial.println();
   */
 }
+
+/////// SEND MESSAGE //////////
+
+void checkMqttSendInterval() {
+  if (millis() - lastMqttSendTime > 1000) {
+    sendTempMqttMessage();
+    lastMqttSendTime = millis();
+  }
+}
+
+void sendTempMqttMessage() {
+  char sendBuf[128];
+  StaticJsonBuffer<200> jsonBuffer;
+  JsonObject& dataPair = jsonBuffer.createObject();
+
+  dataPair["beerTemp"] = beerTemp;
+  dataPair["airTemp"] = airTemp;
+
+  dataPair.printTo(sendBuf, sizeof(sendBuf));
+
+  mqttc.publish(MQTT_TOPIC_TEMP_OUT, sendBuf);
+}
+

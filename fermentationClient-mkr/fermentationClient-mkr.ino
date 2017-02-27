@@ -1,6 +1,6 @@
 #include <LiquidCrystal.h>
 //#include <Wire.h>
-//#include <OneWire.h>
+#include <OneWire.h>
 #include <MQTTClient.h>
 #include <ArduinoJson.h>
 #include <WiFi101.h>
@@ -13,7 +13,7 @@ const char* _PASSWORD = "homebrew";
 char mqttBrokerIP[]       = "192.168.1.1";  //192.168.0.10  - seebier.local
 int  mqttPort           = 1883;
 char mqttClientName[]   = "freezer0";
-char mqtt_topic_DataOut[]      = "/freezer/f1/isValues";     //receive on: f1 und f2
+char MQTT_TOPIC_TEMP_OUT[]      = "/freezer/f1/temperatures";     //receive on: f1 und f2
 char MQTT_TOPIC_SUBSCRIBTION[] = "/freezer/f1/setValues";  //  /freezer/f1/setValues
 char MQTT_TOPIC_RELAYTEST[] = "/relayTest/f1";
 
@@ -49,9 +49,13 @@ char targetDurationStr[15];   //"targetDurationStr" : "00D, 00:50:52"
 float targetTemp = 0;
 
 // ====== Temperature / DS18B20 Sensor ============
-//OneWire  ds(19);  // on pin 5sendt
+OneWire  ds(20);
+byte tempSensorAddr[8];
+
 float beerTemp = 0.0;
 float airTemp = 0.0;
+int tempMode = 0;
+unsigned long lastTempRequestTime = 0;
 
 // ====== Timer / Debug
 #define LIFE_PIN 6
@@ -67,6 +71,7 @@ unsigned long lastblinkTimerUpdate = 0;
 boolean blinkeMsg = false;
 unsigned long lcdLightLastUpdate = 0;
 boolean lcdLightOn = true;
+unsigned long lastMqttSendTime = 0;
 
 // ====== SETUP =======================================================
 void setup() {
@@ -125,6 +130,11 @@ void setup() {
 
 // ====== LOOP =======================================================
 void loop() {
+  //life toogle (blinking LED)
+  lifeToggle();
+
+  getTemperatures();
+  checkMqttSendInterval();
 
   //mqtt
   mqttc.loop();
@@ -133,7 +143,7 @@ void loop() {
     connectMqttBroker();
   }
 
-  if (millis() - lastMqttMessageReceived > 1500) {
+  if (millis() - lastMqttMessageReceived > 2000) {
     // NO MQTT MESSAGE RECEIVED !!!
     mqttReceiveTimeout = true;
 
@@ -149,9 +159,6 @@ void loop() {
     mqttReceiveTimeout = false;
   }
 
-  //life toogle (blinking LED)
-  lifeToggle();
-
   //relay Test
   if (millis() - lastRelayTime < 1000) {
     digitalWrite(RELAY_PIN, HIGH);
@@ -163,21 +170,28 @@ void loop() {
 
   // Diplay Values
   checkDisplayRefresh();
+
   //Button pressed
   if (buttonClicked == true) {
     lcdLightLastUpdate = millis();
+
     if (lcdLightOn == false) {
       lcdLightOn = true;
+
     } else {
+      // Change Display Mode
+      displayMode = (displayMode + 1) % 3;  //3 => 0 - 2 Modes
+
       lcd.clear();
-      displayMode = (displayMode + 1) % 3;
       refresh = true;
+      lastRefreshUpdate = millis();
     }
   }
 
   if (lcdLightOn && millis() - lcdLightLastUpdate < 100) {
     digitalWrite(LCD_POWER_PIN, HIGH);
-  } else if (lcdLightOn && millis() - lcdLightLastUpdate >= 10000) {
+  } else if (lcdLightOn && millis() - lcdLightLastUpdate >= 15000) {
+    // LCD Screen POWER DOWN MODE
     lcdLightOn = false;
   } else if (lcdLightOn == false) {
     digitalWrite(LCD_POWER_PIN, LOW);
@@ -195,9 +209,9 @@ void loop() {
         lcd.setCursor(0, 0);
         lcd.print("1)Main              ");
         lcd.setCursor(0, 1);
-        lcd.print("beer:               ");
+        lcd.print("Beer:               ");
         lcd.setCursor(0, 2);
-        lcd.print("air :               ");
+        lcd.print("Air :               ");
         lcd.setCursor(0, 3);
         lcd.print("                    ");
       }
