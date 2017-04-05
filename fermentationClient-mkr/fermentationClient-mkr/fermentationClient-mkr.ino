@@ -18,6 +18,7 @@ char mqttClientName[]   = "freezer0";
 char MQTT_TOPIC_TEMP_OUT[]      = "/freezer/f1/temperatures";     //receive on: f1 und f2
 char MQTT_TOPIC_SUBSCRIBTION[] = "/freezer/f1/setValues";  //  /freezer/f1/setValues
 char MQTT_TOPIC_RELAYTEST[] = "/relayTest/f1";
+char MQTT_TOPIC_ACKN[] = "/freezer/f1/receivedMessage";
 
 WiFiClient netClient;   //wifi cleint
 MQTTClient mqttc;
@@ -131,13 +132,12 @@ void setup() {
 }
 
 
-// ====== LOOP =======================================================
+// ====== LOOP ========================================================================================
 void loop() {
   //life toogle (blinking LED)
   lifeToggle();
- Serial.println("*");
   //getTemperatures();
-  //checkMqttSendInterval();  //send temp out
+  sendTempMqttMessage();  //send temp out
 
   //mqtt
   mqttc.loop();
@@ -283,6 +283,7 @@ void loop() {
 
 
 void lifeToggle() {
+  //blink LED to visually show that programm running
   int timer1 = millis() - lastLifeToggleUpdate;
   if (timer1 > 1000) {
     if (toggle == true) {

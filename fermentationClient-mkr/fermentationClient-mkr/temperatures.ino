@@ -87,13 +87,10 @@ void readTemp() {
       break;
   }
 
-  
+
   //lcd.setCursor(0, 1 + sensor % LCD_HEIGHT);
   //lcd.print(buf);
 
 
 */
 }
-
-
-

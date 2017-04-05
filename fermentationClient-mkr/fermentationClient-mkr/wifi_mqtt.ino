@@ -45,7 +45,6 @@ void messageReceived(String topic, String payload, char * bytes, unsigned int le
   lastMqttMessageReceived = millis();
   //lcd.setCursor(0, 0);
   //lcd.print(topic);
-  Serial.println("mq msg");
 
   if (topic == MQTT_TOPIC_SUBSCRIBTION) {
     parseBuffer(payload);
@@ -54,7 +53,7 @@ void messageReceived(String topic, String payload, char * bytes, unsigned int le
   if (topic == MQTT_TOPIC_RELAYTEST) {
     lastRelayTime = millis();
   }
-
+  sendmqttackn();
 }
 
 void parseBuffer(String payload) {
@@ -117,22 +116,23 @@ void parseBuffer(String payload) {
 
 /////// SEND MESSAGE //////////
 
-void checkMqttSendInterval() {
-  if (millis() - lastMqttSendTime > 1000) {
-    sendTempMqttMessage();
-    lastMqttSendTime = millis();
-  }
+void sendmqttackn(){
+  // acknoledge message that msg pckage is received
+  mqttc.publish(MQTT_TOPIC_ACKN, "True");
 }
 
 void sendTempMqttMessage() {
-  char sendBuf[128];
-  StaticJsonBuffer<200> jsonBuffer;
-  JsonObject& dataPair = jsonBuffer.createObject();
+  if (millis() - lastMqttSendTime > 1000) {
+    char sendBuf[128];
+    StaticJsonBuffer<200> jsonBuffer;
+    JsonObject& dataPair = jsonBuffer.createObject();
 
-  dataPair["beerTemp"] = beerTemp;
-  dataPair["airTemp"] = airTemp;
+    dataPair["beerTemp"] = beerTemp;
+    dataPair["airTemp"] = airTemp;
 
-  dataPair.printTo(sendBuf, sizeof(sendBuf));
+    dataPair.printTo(sendBuf, sizeof(sendBuf));
+    mqttc.publish(MQTT_TOPIC_TEMP_OUT, sendBuf);
 
-  mqttc.publish(MQTT_TOPIC_TEMP_OUT, sendBuf);
+    lastMqttSendTime = millis();
+  }
 }
