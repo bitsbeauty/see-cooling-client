@@ -53,7 +53,8 @@ void messageReceived(String topic, String payload, char * bytes, unsigned int le
   if (topic == MQTT_TOPIC_RELAYTEST) {
     lastRelayTime = millis();
   }
-  sendmqttackn();
+  //sendmqttackn();
+  mqttc.publish(MQTT_TOPIC_ACKN, payload);  //TODO
 }
 
 void parseBuffer(String payload) {

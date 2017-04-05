@@ -53,7 +53,8 @@ float targetTemp = 0;
 
 // ====== Temperature / DS18B20 Sensor ============
 OneWire  ds(20);
-byte tempSensorAddr[8];
+#define ANZ_DS1820_SENSORS 2
+byte tempSensorAddr[ANZ_DS1820_SENSORS][8];
 
 float beerTemp = 0.0;
 float airTemp = 0.0;
@@ -94,6 +95,34 @@ void setup() {
 
   //#### relay ####
   pinMode(RELAY_PIN, OUTPUT);
+
+  //#### connect temp sensors ####
+  int sensorCount = 0;
+  for (int i = 0; i < ANZ_DS1820_SENSORS; i++) {
+    if (!ds.search(tempSensorAddr[i]))
+    {
+      lcd.setCursor(0, 0);
+      lcd.print("Please connect two temperature sensors.");
+      ds.reset_search();
+      delay(250);
+      return;
+    }
+    sensorCount++;
+  }
+  lcd.setCursor(0, 0);
+  lcd.print("DS18-B20 Sensoren");
+  lcd.setCursor(0, 1);
+  lcd.print("count: ");
+  lcd.print(sensorCount);
+  lcd.setCursor(0, 2);
+  // String addrString = String(tempSensorAddr[0]);
+  // lcd.print("add1: ");
+  // lcd.print(addrString);
+  // lcd.setCursor(0, 3);
+  // lcd.print("add2: ");
+  // lcd.print(tempSensorAddr[1]);
+  delay(1500);
+  lcd.clear();
 
   //#### wifi ####
   lcd.setCursor(0, 0);
@@ -136,7 +165,7 @@ void setup() {
 void loop() {
   //life toogle (blinking LED)
   lifeToggle();
-  //getTemperatures();
+  getTemperatures();
   sendTempMqttMessage();  //send temp out
 
   //mqtt

@@ -2,10 +2,10 @@
 
 void getTemperatures() {
   //########## ACHTUNG - DEBUG WITHOUT SENSOR!!! #########################
-  if (millis() % 1000 < 2) {
-    beerTemp += 0.1;
-    airTemp += 0.1;
-  }
+  // if (millis() % 1000 < 2) {
+  //   beerTemp += 0.1;
+  //   airTemp += 0.1;
+  // }
   // ################################################
 
   //get Temperature
@@ -27,23 +27,25 @@ void getTemperatures() {
 
 //////// REQUEST TEMP  ////////
 void requestTemp() {
-  if ( tempSensorAddr[0] != 0x28) {
-    //TODO: Sensor Failure
-    //lcd.setCursor(0, 0);
-    //lcd.print("GerÃ¤t ist aus der DS18B20 Familie.");
+  for (int i = 0; i < ANZ_DS1820_SENSORS; i++) {
+    // if ( tempSensorAddr[0] != 0x28) {
+    //   //TODO: Sensor Failure
+    //   //lcd.setCursor(0, 0);
+    //   //lcd.print("GerÃ¤t ist aus der DS18B20 Familie.");
+    // }
+
+    ds.reset();
+    ds.select(tempSensorAddr[i]);
+    ds.write(0x44, 1);        // start conversion, with parasite power on at the end
+
+    //delay(1000);     // maybe 750ms is enough, maybe not
   }
-
-  ds.reset();
-  ds.select(tempSensorAddr);
-  ds.write(0x44, 1);        // start conversion, with parasite power on at the end
-
-  //delay(1000);     // maybe 750ms is enough, maybe not
 }
 
 
 void readTemp() {
   //  NNEEEDDDSS TWO SENSORS!!
-  /*
+
   int HighByte, LowByte, TReading, Tc_100, Whole, Fract;
   char buf[20];
   byte data[12];
@@ -51,10 +53,11 @@ void readTemp() {
 
   // we might do a ds.depower() here, but the reset will take care of it.
 
-
+  for (int sensor=0;sensor<ANZ_DS1820_SENSORS;sensor++)
+  {
 
   ds.reset();
-  ds.select(tempSensorAddr);
+  ds.select(tempSensorAddr[sensor]);
   ds.write(0xBE);         // Read Scratchpad
 
   for (int i = 0; i < 9; i++)
@@ -78,12 +81,14 @@ void readTemp() {
 
   switch (sensor) {
     case 0:
-      temperatureAir = Tc_100;
-      sprintf(buf, "%s:%c%d.%d\337C   ", "Air ", signBit ? '-' : '+', Whole, Fract < 10 ? 0 : Fract);
+      airTemp = Tc_100/100.0;
+      //temperatureAir = Tc_100;
+      //sprintf(buf, "%s:%c%d.%d\337C   ", "Air ", signBit ? '-' : '+', Whole, Fract < 10 ? 0 : Fract);
       break;
     case 1:
-      temperatureLiquid = Tc_100;
-      sprintf(buf, "%s:%c%d.%d\337C(%d.%d)", "Beer", signBit ? '-' : '+', Whole, Fract < 10 ? 0 : Fract, sollTemp / 100, sollTemp % 100 < 10 ? 0 : sollTemp % 100);
+      beerTemp = Tc_100/100.0;;
+      //temperatureLiquid = Tc_100;
+      //sprintf(buf, "%s:%c%d.%d\337C(%d.%d)", "Beer", signBit ? '-' : '+', Whole, Fract < 10 ? 0 : Fract, sollTemp / 100, sollTemp % 100 < 10 ? 0 : sollTemp % 100);
       break;
   }
 
@@ -91,6 +96,6 @@ void readTemp() {
   //lcd.setCursor(0, 1 + sensor % LCD_HEIGHT);
   //lcd.print(buf);
 
+}
 
-*/
 }
