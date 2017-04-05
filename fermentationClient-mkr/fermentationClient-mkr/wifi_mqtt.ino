@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 void connectWifi() {
   //connect to wifi
   int cpos = 0;
@@ -43,10 +45,10 @@ void messageReceived(String topic, String payload, char * bytes, unsigned int le
   lastMqttMessageReceived = millis();
   //lcd.setCursor(0, 0);
   //lcd.print(topic);
+  Serial.println("mq msg");
 
   if (topic == MQTT_TOPIC_SUBSCRIBTION) {
     parseBuffer(payload);
-    lastRelayTime = millis();
   }
 
   if (topic == MQTT_TOPIC_RELAYTEST) {
@@ -100,7 +102,7 @@ void parseBuffer(String payload) {
   }
   */
 
-  
+
   /*
     const char* nameparam = root["actions"][0]["name"];
     const int actionLEDRed = root["actions"][0]["parameters"]["led_red"];
@@ -134,4 +136,3 @@ void sendTempMqttMessage() {
 
   mqttc.publish(MQTT_TOPIC_TEMP_OUT, sendBuf);
 }
-

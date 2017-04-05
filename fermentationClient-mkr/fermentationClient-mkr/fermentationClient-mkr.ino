@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 #include <LiquidCrystal.h>
 //#include <Wire.h>
 #include <OneWire.h>
@@ -66,6 +68,7 @@ unsigned long lastRelayTime = 0;  //last time when relay Test topic received
 unsigned long  lastRefreshUpdate = 0;
 boolean refresh = true;
 boolean first = true;
+unsigned long mqttMessageTimeout = 2000;
 unsigned long lastMqttMessageReceived = 0;
 unsigned long lastblinkTimerUpdate = 0;
 boolean blinkeMsg = false;
@@ -132,18 +135,17 @@ void setup() {
 void loop() {
   //life toogle (blinking LED)
   lifeToggle();
-
-  getTemperatures();
-  checkMqttSendInterval();
+ Serial.println("*");
+  //getTemperatures();
+  //checkMqttSendInterval();  //send temp out
 
   //mqtt
   mqttc.loop();
-
   if (!mqttc.connected()) {
     connectMqttBroker();
   }
 
-  if (millis() - lastMqttMessageReceived > 2000) {
+  if (millis() > mqttMessageTimeout && millis() - lastMqttMessageReceived > mqttMessageTimeout) {
     // NO MQTT MESSAGE RECEIVED !!!
     mqttReceiveTimeout = true;
 
@@ -197,9 +199,9 @@ void loop() {
     digitalWrite(LCD_POWER_PIN, LOW);
   }
 
-  char buf[20];
-  sprintf(buf, "dm:%i - ref:%i", displayMode, refresh);
-  Serial.println(buf);
+  //char buf[20];
+  //sprintf(buf, "dm:%i - ref:%i", displayMode, refresh);
+  //Serial.println(buf);
 
 
   switch (displayMode) {
@@ -295,6 +297,7 @@ void lifeToggle() {
 }
 
 void checkDisplayRefresh() {
+  //refresh whole display from time to time to avoid failures
   if (millis() - lastRefreshUpdate > 3000 || first == true) {
     first = false;
     refresh = true;
@@ -303,4 +306,3 @@ void checkDisplayRefresh() {
     refresh = false;
   }
 }
-

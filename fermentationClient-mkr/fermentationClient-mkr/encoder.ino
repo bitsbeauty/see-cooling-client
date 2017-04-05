@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 void checkEncoderButtonPress() {
   int buttonState = digitalRead(ENCODER_SWITCH_PIN);
   int _buttonPressedTime = 0;
@@ -30,12 +32,11 @@ void checkEncoderButtonPress() {
     buttonClickedFirst = true;
   }
 
-  
+
   char buf[20];
   sprintf(buf, "%i - %i -p:%i -c:%i", buttonState, _buttonPressedTime, buttonPressed, buttonClicked);
-  Serial.println(buf);
-  
+  //Serial.println(buf);
+
 
   lastButtonState = buttonState;
 }
-
