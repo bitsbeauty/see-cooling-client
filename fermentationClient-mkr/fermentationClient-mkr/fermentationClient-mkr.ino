@@ -43,6 +43,10 @@ int lastButtonState;
 boolean buttonPressed = false;
 boolean buttonClicked = false;
 boolean buttonClickedFirst = true;
+// === Encoder LEDs ===
+#define ledpinR 16  //not working jet!
+#define ledpinG 15
+#define ledpinB 14
 
 // ====== Freezer Relay ========================
 #define RELAY_PIN 19
@@ -219,8 +223,10 @@ void loop() {
     }
   }
 
-  if (lcdLightOn && millis() - lcdLightLastUpdate < 100) {
+  if (lcdLightOn && millis() - lcdLightLastUpdate < 100 || mqttReceiveTimeout) {
     digitalWrite(LCD_POWER_PIN, HIGH);
+    //analogWrite(ledpinR, 255);
+
   } else if (lcdLightOn && millis() - lcdLightLastUpdate >= 15000) {
     // LCD Screen POWER DOWN MODE
     lcdLightOn = false;
