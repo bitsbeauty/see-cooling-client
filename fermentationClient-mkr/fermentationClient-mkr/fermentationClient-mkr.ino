@@ -50,6 +50,7 @@ boolean buttonClickedFirst = true;
 
 // ====== Freezer Relay ========================
 #define RELAY_PIN 19
+int relayCMD = 0;
 
 // ====== Screen Variables ========================
 char targetDurationStr[15];   //"targetDurationStr" : "00D, 00:50:52"
@@ -172,6 +173,8 @@ void loop() {
   getTemperatures();
   sendTempMqttMessage();  //send temp out
 
+  //wifi
+  if (WiFi.status() != WL_CONNECTED) connectWifi();
   //mqtt
   mqttc.loop();
   if (!mqttc.connected()) {
@@ -200,6 +203,8 @@ void loop() {
   } else {
     digitalWrite(RELAY_PIN, LOW);
   }
+  //set cooler Relay
+  digitalWrite(RELAY_PIN, relayCMD);
 
   checkEncoderButtonPress();  //check if button pressed
 
@@ -223,7 +228,7 @@ void loop() {
     }
   }
 
-  if (lcdLightOn && millis() - lcdLightLastUpdate < 100 || mqttReceiveTimeout) {
+  if ((lcdLightOn && millis() - lcdLightLastUpdate < 100) || mqttReceiveTimeout) {
     digitalWrite(LCD_POWER_PIN, HIGH);
     //analogWrite(ledpinR, 255);
 

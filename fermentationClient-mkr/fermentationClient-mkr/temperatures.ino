@@ -47,7 +47,7 @@ void readTemp() {
   //  NNEEEDDDSS TWO SENSORS!!
 
   int HighByte, LowByte, TReading, Tc_100, Whole, Fract;
-  char buf[20];
+  //char buf[20];
   byte data[12];
   int signBit;
 

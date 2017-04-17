@@ -54,7 +54,7 @@ void messageReceived(String topic, String payload, char * bytes, unsigned int le
     lastRelayTime = millis();
   }
   //sendmqttackn();
-  mqttc.publish(MQTT_TOPIC_ACKN, payload);  //TODO
+  mqttc.publish(MQTT_TOPIC_ACKN, topic);  //TODO
 }
 
 void parseBuffer(String payload) {
@@ -74,6 +74,8 @@ void parseBuffer(String payload) {
   String json = payload;
   JsonObject& root = jsonBuffer.parseObject(json);
 
+
+  relayCMD = root["relay"];
   targetTemp = root["targetTemp"];
   //targetDurationStr = root["targetDurationStr"].asString();
   //_targetDurationStr.toCharArray(targetDurationStr, 13);
