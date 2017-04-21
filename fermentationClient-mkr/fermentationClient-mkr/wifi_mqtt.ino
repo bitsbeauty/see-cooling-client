@@ -45,6 +45,7 @@ void messageReceived(String topic, String payload, char * bytes, unsigned int le
   lastMqttMessageReceived = millis();
   //lcd.setCursor(0, 0);
   //lcd.print(topic);
+  Serial.println(topic);
 
   if (topic == MQTT_TOPIC_SUBSCRIBTION) {
     parseBuffer(payload);
@@ -68,15 +69,29 @@ void parseBuffer(String payload) {
     }
 
   */
-  //Serial.println("PARSING");
+  Serial.println("PARSING");
 
   StaticJsonBuffer<200> jsonBuffer;
   String json = payload;
   JsonObject& root = jsonBuffer.parseObject(json);
 
+  // Test if parsing succeeds.
+  if (!root.success()) {
+    lcd.setCursor(0, 3);
+    lcd.print("  parseObject() failed ");
+    Serial.println(" parsedObject() failed ");
+    return;
+  }
 
-  relayCMD = root["relay"];
-  targetTemp = root["targetTemp"];
+  if (root.containsKey("relay")){
+    Serial.println(" contain = relay ");
+    relayCMD = root["relay"];
+  }
+  if (root.containsKey("targetTemp")){
+    Serial.println(" contain = targetTemp ");
+    targetTemp = root["targetTemp"];
+  }
+
   //targetDurationStr = root["targetDurationStr"].asString();
   //_targetDurationStr.toCharArray(targetDurationStr, 13);
   //targetTemp = _targetTemp;
@@ -87,22 +102,27 @@ void parseBuffer(String payload) {
     lcd.print("");
   */
 
-  const char* _targetDurationStr = root["targetDurationStr"];
-  //targetDurationStr = root["targetDurationStr"].asString();
-  //_targetDurationStr.toCharArray(targetDurationStr, 13);
-  if (displayMode == 1) {
-    lcd.setCursor(0, 3);
-    lcd.print("tdur:");
-    lcd.print(_targetDurationStr);
+  if (root.containsKey("targetDurationStr")){
+    Serial.println(" contain = targetDurationStr ");
+    const char* _targetDurationStr = root["targetDurationStr"];
+    //_targetDurationStr = root["targetDurationStr"].asString();
+    // _targetDurationStr.toCharArray(targetDurationStr, 13);
+    if (displayMode == 1) {
+      lcd.setCursor(0, 3);
+      lcd.print("tdur:");
+      lcd.print(_targetDurationStr);
+    }
   }
 
-  /*const char* _leftRuntimeStr = root["leftRuntimeStr"];
-  if (displayMode == 0) {
-    lcd.setCursor(0, 3);
-    lcd.print(" -T :");
-    lcd.print(_leftRuntimeStr);
+  if (root.containsKey("leftRuntimeStr")){
+    const char* _leftRuntimeStr = root["leftRuntimeStr"];
+    if (displayMode == 0) {
+      lcd.setCursor(0, 3);
+      lcd.print(" -T :");
+      lcd.print(_leftRuntimeStr);
+    }
   }
-  */
+
 
 
   /*

@@ -270,17 +270,16 @@ void loop() {
       lcd.print(buf);
 
       //Left Time
-      lcd.setCursor(0, 3);
       if (mqttReceiveTimeout) {
+        lcd.setCursor(0, 3);
         if (blinkeMsg) {
           lcd.print(" !!NO MQTT Message!!");
         } else {
           lcd.print("                    ");
         }
-      } else {
-        //lcd.print("tdur:");
-        //lcd.print(_targetDurationStr);
       }
+      //lcd.print("tdur:");
+      //lcd.print(_targetDurationStr);
       return;
     case 1:
       //Target Screen
@@ -317,6 +316,7 @@ void loop() {
 
       return;
   }
+
 
 
 }
