@@ -51,6 +51,7 @@ boolean buttonClickedFirst = true;
 // ====== Freezer Relay ========================
 #define RELAY_PIN 19
 int relayCMD = 0;
+boolean progIsRunning = false;
 
 // ====== Screen Variables ========================
 char targetDurationStr[15];   //"targetDurationStr" : "00D, 00:50:52"
@@ -82,6 +83,10 @@ boolean blinkeMsg = false;
 unsigned long lcdLightLastUpdate = 0;
 boolean lcdLightOn = true;
 unsigned long lastMqttSendTime = 0;
+boolean blinkDisplayLight = false;
+unsigned long lastBlinkDisplayLightUpdate = 0;
+boolean blinkDisplayLightToggle = false;
+
 
 // ====== SETUP =======================================================
 void setup() {
@@ -181,6 +186,12 @@ void loop() {
     connectMqttBroker();
   }
 
+  if (progIsRunning){
+    blinkDisplayLight = false;
+  } else {
+    blinkDisplayLight = true;
+  }
+
   if (millis() > mqttMessageTimeout && millis() - lastMqttMessageReceived > mqttMessageTimeout) {
     // NO MQTT MESSAGE RECEIVED !!!
     mqttReceiveTimeout = true;
@@ -237,6 +248,20 @@ void loop() {
     lcdLightOn = false;
   } else if (lcdLightOn == false) {
     digitalWrite(LCD_POWER_PIN, LOW);
+  }
+
+  // Blink Display Light
+  if (blinkDisplayLight){
+    if (millis()-lastBlinkDisplayLightUpdate > 1000){
+      lastBlinkDisplayLightUpdate = millis();
+      if (blinkDisplayLightToggle){
+        blinkDisplayLightToggle = false;
+        digitalWrite(LCD_POWER_PIN, LOW);
+      } else {
+        blinkDisplayLightToggle = true;
+        digitalWrite(LCD_POWER_PIN, HIGH);
+      }
+    }
   }
 
   //char buf[20];

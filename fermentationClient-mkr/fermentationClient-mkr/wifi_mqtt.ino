@@ -83,12 +83,16 @@ void parseBuffer(String payload) {
     return;
   }
 
+  if (root.containsKey("isRunning")){
+    Serial.println(" contain == isRunning ");
+    progIsRunning = root["isRunning"];
+  }
   if (root.containsKey("relay")){
-    Serial.println(" contain = relay ");
+    Serial.println(" contain == relay ");
     relayCMD = root["relay"];
   }
   if (root.containsKey("targetTemp")){
-    Serial.println(" contain = targetTemp ");
+    Serial.println(" contain == targetTemp ");
     targetTemp = root["targetTemp"];
   }
 
