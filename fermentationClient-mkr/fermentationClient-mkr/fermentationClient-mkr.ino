@@ -34,7 +34,7 @@ LiquidCrystal lcd(7, 8, 9, 1, 11, 12); //mkr
 #define LCD_HEIGHT 4
 unsigned long displayTimer = 0;
 int displayOnTime = 12000;
-int displayMode = 0;
+int displayMode = 0;    //information set which is shown
 
 // ====== encoder ========================
 #define ENCODER_SWITCH_PIN 4 //push button switch
@@ -43,6 +43,8 @@ int lastButtonState;
 boolean buttonPressed = false;
 boolean buttonClicked = false;
 boolean buttonClickedFirst = true;
+unsigned long displayOnTimeAfterClick = 15000;
+
 // === Encoder LEDs ===
 #define ledpinR 16  //not working jet!
 #define ledpinG 15
@@ -51,7 +53,6 @@ boolean buttonClickedFirst = true;
 // ====== Freezer Relay ========================
 #define RELAY_PIN 19
 int relayCMD = 0;
-boolean progIsRunning = false;
 
 // ====== Screen Variables ========================
 char targetDurationStr[15];   //"targetDurationStr" : "00D, 00:50:52"
@@ -68,6 +69,7 @@ int tempMode = 0;
 unsigned long lastTempRequestTime = 0;
 
 // ====== Timer / Debug
+int fermentationProgramMode = 0; //# 0=stopped; 1=running; 2=ended
 #define LIFE_PIN 6
 char celciusSign[] = "\337";  // \337C
 unsigned long lastLifeToggleUpdate = 0;
@@ -77,18 +79,22 @@ unsigned long  lastRefreshUpdate = 0;
 boolean refresh = true;
 boolean first = true;
 unsigned long mqttMessageTimeout = 2000;
-unsigned long lastMqttMessageReceived = 0;
-unsigned long lastblinkTimerUpdate = 0;
-boolean blinkeMsg = false;
-unsigned long lcdLightLastUpdate = 0;
-boolean lcdLightOn = true;
-unsigned long lastMqttSendTime = 0;
-boolean blinkDisplayLight = false;
-unsigned long lastBlinkDisplayLightUpdate = 0;
-boolean blinkDisplayLightToggle = false;
+unsigned long lastMqttMessageReceived = 0;  //time when last mqtt msg received
+unsigned long lastMqttSendTime = 0;         //time when last mqtt msg send
+
+// Text Blink
+boolean blinkText = false;       //cmd to blink a text
+boolean blinkTextState = false; //state if Text is on or off while blinking
+unsigned long lastblinkTextUpdate = 0;  //time when last changed blinkState
+
+//LCD Backlight Blink Mode
+int lcdBckLightMode = 0;  // 0=OFF; 1=ON; 2=BLINK
+unsigned long lastButtonClicked = 0;  //time when last button pressed to turn on backlight of lcd
+unsigned long lastBlinkDisplayLightUpdate = 0;  //when blinking display last was updated
+boolean blinkDisplayLightState = false;
 
 
-// ====== SETUP =======================================================
+// ====== SETUP =================================================================================
 void setup() {
   //##### debug ###
   Serial.begin(9600);
@@ -112,7 +118,7 @@ void setup() {
     if (!ds.search(tempSensorAddr[i]))
     {
       lcd.setCursor(0, 0);
-      lcd.print("Please connect two temperature sensors.");
+      lcd.print("Please connect 2 temperature sensors.");
       ds.reset_search();
       delay(250);
       return;
@@ -135,9 +141,6 @@ void setup() {
   lcd.clear();
 
   //#### wifi ####
-  lcd.setCursor(0, 0);
-  lcd.print("Connect to wifi");
-  lcd.setCursor(0, 1);
   connectWifi();
 
   //wif connected !
@@ -179,31 +182,21 @@ void loop() {
   sendTempMqttMessage();  //send temp out
 
   //wifi
-  if (WiFi.status() != WL_CONNECTED) connectWifi();
+  if (WiFi.status() != WL_CONNECTED){
+    connectWifi();
+    digitalWrite(LCD_POWER_PIN, LOW);
+  }
   //mqtt
   mqttc.loop();
   if (!mqttc.connected()) {
     connectMqttBroker();
   }
 
-  if (progIsRunning){
-    blinkDisplayLight = false;
-  } else {
-    blinkDisplayLight = true;
-  }
 
   if (millis() > mqttMessageTimeout && millis() - lastMqttMessageReceived > mqttMessageTimeout) {
     // NO MQTT MESSAGE RECEIVED !!!
     mqttReceiveTimeout = true;
-
-    if (millis() - lastblinkTimerUpdate > 500 && blinkeMsg == false) {
-      //show Text
-      blinkeMsg = true;
-    } else if (millis() - lastblinkTimerUpdate > 1200 && blinkeMsg == true) {
-      //dont show text
-      blinkeMsg = false;
-      lastblinkTimerUpdate = millis();
-    }
+    blinkText = true;
   } else {
     mqttReceiveTimeout = false;
   }
@@ -217,19 +210,19 @@ void loop() {
   //set cooler Relay
   digitalWrite(RELAY_PIN, relayCMD);
 
-  checkEncoderButtonPress();  //check if button pressed
-
   // Diplay Values
   checkDisplayRefresh();
 
+  //check if button is pressed
+  checkEncoderButtonPress();  //check if button pressed
+
+
   //Button pressed
   if (buttonClicked == true) {
-    lcdLightLastUpdate = millis();
+    // Serial.print("b: ");
+    // Serial.println(buttonClicked);
 
-    if (lcdLightOn == false) {
-      lcdLightOn = true;
-
-    } else {
+    if (millis()-lastButtonClicked < displayOnTimeAfterClick) {
       // Change Display Mode
       displayMode = (displayMode + 1) % 3;  //3 => 0 - 2 Modes
 
@@ -237,37 +230,17 @@ void loop() {
       refresh = true;
       lastRefreshUpdate = millis();
     }
+    lastButtonClicked = millis();
   }
 
-  if ((lcdLightOn && millis() - lcdLightLastUpdate < 100) || mqttReceiveTimeout) {
-    digitalWrite(LCD_POWER_PIN, HIGH);
-    //analogWrite(ledpinR, 255);
+  //
+  setLcdBcklight();
 
-  } else if (lcdLightOn && millis() - lcdLightLastUpdate >= 15000) {
-    // LCD Screen POWER DOWN MODE
-    lcdLightOn = false;
-  } else if (lcdLightOn == false) {
-    digitalWrite(LCD_POWER_PIN, LOW);
+  //------------------------------------------------------------
+  //change the state of blink text
+  if (blinkText){
+    setBlinkState();
   }
-
-  // Blink Display Light
-  if (blinkDisplayLight){
-    if (millis()-lastBlinkDisplayLightUpdate > 1000){
-      lastBlinkDisplayLightUpdate = millis();
-      if (blinkDisplayLightToggle){
-        blinkDisplayLightToggle = false;
-        digitalWrite(LCD_POWER_PIN, LOW);
-      } else {
-        blinkDisplayLightToggle = true;
-        digitalWrite(LCD_POWER_PIN, HIGH);
-      }
-    }
-  }
-
-  //char buf[20];
-  //sprintf(buf, "dm:%i - ref:%i", displayMode, refresh);
-  //Serial.println(buf);
-
 
   switch (displayMode) {
     case 0:
@@ -297,7 +270,7 @@ void loop() {
       //Left Time
       if (mqttReceiveTimeout) {
         lcd.setCursor(0, 3);
-        if (blinkeMsg) {
+        if (blinkTextState) {
           lcd.print(" !!NO MQTT Message!!");
         } else {
           lcd.print("                    ");
@@ -330,7 +303,7 @@ void loop() {
       }
       lcd.setCursor(0, 3);
       if (WiFi.status() != WL_CONNECTED) {
-        if (blinkeMsg) {
+        if (blinkTextState) {
           lcd.print(" !! No Connection !!");
         } else {
           lcd.print("                    ");
@@ -342,9 +315,12 @@ void loop() {
       return;
   }
 
-
-
 }
+// ====== LOOP  ENDED  ========================================================================================
+
+
+
+
 
 
 void lifeToggle() {
@@ -370,5 +346,69 @@ void checkDisplayRefresh() {
     lastRefreshUpdate = millis();
   } else {
     refresh = false;
+  }
+}
+
+void setBlinkState(){
+  if (millis() - lastblinkTextUpdate > 500 && blinkTextState == false) {
+    //show Text
+    blinkTextState = true;
+  } else if (millis() - lastblinkTextUpdate > 1200 && blinkTextState == true) {
+    //dont show text
+    blinkTextState = false;
+    lastblinkTextUpdate = millis();
+  }
+}
+
+void setLcdBcklight(){
+  // ========BACKLIGHT STATE MACHINE
+  if (fermentationProgramMode != 2 && lcdBckLightMode == 2) {
+     lcdBckLightMode = 0;
+  }
+
+  if (lcdBckLightMode == 0 && (millis()-lastButtonClicked) < displayOnTimeAfterClick){
+    //when button clicked tun light on
+    lcdBckLightMode = 1;
+  }
+  else if (lcdBckLightMode==1 && millis() - lastButtonClicked >= displayOnTimeAfterClick) {
+    // backlight of when no button clicked after time x
+    lcdBckLightMode = 0;
+  }
+
+  if (fermentationProgramMode == 2){
+    // from mqtt >> fermantation stopped
+    lcdBckLightMode = 2;
+  }
+
+
+  //turn backlight on and off
+  // Serial.print("bckLightMode ");
+  // Serial.println(lcdBckLightMode);
+
+
+  // ========TURN LED ON / OFF ===============================
+  if (lcdBckLightMode == 0) {
+    // backlight OFF
+    digitalWrite(LCD_POWER_PIN, LOW);
+  }
+  else if (lcdBckLightMode == 1 ||
+    mqttReceiveTimeout) {
+    // backlight on when button clicked
+    digitalWrite(LCD_POWER_PIN, HIGH);
+  }
+
+  //BLINKING
+  if (lcdBckLightMode == 2){
+    //Backlght Blinking
+      if (blinkDisplayLightState && millis()-lastBlinkDisplayLightUpdate > 1000){
+        lastBlinkDisplayLightUpdate = millis();
+        blinkDisplayLightState = false;
+        digitalWrite(LCD_POWER_PIN, LOW);
+      } else if (blinkDisplayLightState == false && millis()-lastBlinkDisplayLightUpdate > 300){
+        lastBlinkDisplayLightUpdate = millis();
+        blinkDisplayLightState = true;
+        digitalWrite(LCD_POWER_PIN, HIGH);
+      }
+
   }
 }

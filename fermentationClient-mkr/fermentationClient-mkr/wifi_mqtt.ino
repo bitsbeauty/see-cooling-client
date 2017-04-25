@@ -2,6 +2,12 @@
 
 void connectWifi() {
   //connect to wifi
+  digitalWrite(LCD_POWER_PIN, HIGH);
+
+  lcd.setCursor(0, 0);
+  lcd.print("Connect to wifi");
+  lcd.setCursor(0, 1);
+
   int cpos = 0;
   while (WiFi.status() != WL_CONNECTED) {
     WiFi.begin(_SSID, _PASSWORD);
@@ -17,6 +23,7 @@ void connectWifi() {
     delay(300);
   }
   ipAdress = WiFi.localIP();
+
 }
 
 
@@ -69,7 +76,7 @@ void parseBuffer(String payload) {
     }
 
   */
-  Serial.println("PARSING");
+  // Serial.println("PARSING");
 
   StaticJsonBuffer<200> jsonBuffer;
   String json = payload;
@@ -83,16 +90,16 @@ void parseBuffer(String payload) {
     return;
   }
 
-  if (root.containsKey("isRunning")){
-    Serial.println(" contain == isRunning ");
-    progIsRunning = root["isRunning"];
+  if (root.containsKey("fpMode")){
+    // Serial.println(" contain == fpMode ");
+    fermentationProgramMode = root["fpMode"];
   }
   if (root.containsKey("relay")){
-    Serial.println(" contain == relay ");
+    // Serial.println(" contain == relay ");
     relayCMD = root["relay"];
   }
   if (root.containsKey("targetTemp")){
-    Serial.println(" contain == targetTemp ");
+    // Serial.println(" contain == targetTemp ");
     targetTemp = root["targetTemp"];
   }
 
@@ -107,7 +114,7 @@ void parseBuffer(String payload) {
   */
 
   if (root.containsKey("targetDurationStr")){
-    Serial.println(" contain = targetDurationStr ");
+    // Serial.println(" contain = targetDurationStr ");
     const char* _targetDurationStr = root["targetDurationStr"];
     //_targetDurationStr = root["targetDurationStr"].asString();
     // _targetDurationStr.toCharArray(targetDurationStr, 13);
